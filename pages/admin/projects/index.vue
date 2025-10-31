@@ -2,21 +2,11 @@
 definePageMeta({ middleware: ['auth','admin'] })
 useSeoMeta({ title: 'Admin - Projects' })
 
-// Mock datasets
-const mockUsers = [
-  { id: 'u-1', email: 'alice@example.com', name: 'Alice' },
-  { id: 'u-2', email: 'bob@example.com', name: 'Bob' },
-  { id: 'u-3', email: 'carol@example.com', name: 'Carol' },
-  { id: 'u-4', email: 'dave@example.com', name: 'Dave' },
-]
+const supabase = useSupabaseClient()
 
-type Project = { id: string, name: string, admins: string[], users: string[] }
-
-const projects = ref<Project[]>([
-  { id: 'p-1', name: 'Project Alpha', admins: ['u-1'], users: ['u-1','u-2'] },
-  { id: 'p-2', name: 'Project Beta', admins: ['u-2','u-3'], users: ['u-2','u-3','u-4'] },
-  { id: 'p-3', name: 'Project Gamma', admins: [], users: [] },
-])
+type Project = { id: string, name: string, admins: string[] }
+const projects = ref<Project[]>([])
+const allUsers = ref<any[]>([])
 
 const isCreateOpen = ref(false)
 const isEditOpen = ref(false)
@@ -26,7 +16,7 @@ const isManageAdminsOpen = ref(false)
 const draft = reactive<{ id?: string, name: string }>({ name: '' })
 const selected = ref<Project | null>(null)
 
-const userOptions = computed(() => mockUsers.map(u => ({ label: u.name || u.email, value: u.id })))
+const userOptions = computed(() => allUsers.value.map(u => ({ label: u.name || u.email, value: u.id })))
 
 const columns = [
   { key: 'name', label: 'Project' },
@@ -37,10 +27,11 @@ const columns = [
 
 const goDetail = (id: string) => navigateTo({ name: 'admin-projects-id', params: { id } })
 
+const projectIdToUsersCount = ref<Record<string, number>>({})
 const tableRows = computed(() => projects.value.map(p => ({
   ...p,
-  usersCount: p.users.length,
-  adminsCount: p.admins.length,
+  usersCount: projectIdToUsersCount.value[p.id] || 0,
+  adminsCount: (p.admins || []).length,
 })))
 
 const openCreate = () => { draft.id = undefined; draft.name = ''; isCreateOpen.value = true }
@@ -48,19 +39,47 @@ const openEdit = (p: Project) => { draft.id = p.id; draft.name = p.name; isEditO
 const openManageUsers = (p: Project) => { selected.value = JSON.parse(JSON.stringify(p)); isManageUsersOpen.value = true }
 const openManageAdmins = (p: Project) => { selected.value = JSON.parse(JSON.stringify(p)); isManageAdminsOpen.value = true }
 
-const createProject = () => { const id = `p-${Date.now()}`; projects.value.unshift({ id, name: draft.name.trim(), admins: [], users: [] }); isCreateOpen.value = false }
-const saveProject = () => { const idx = projects.value.findIndex(p => p.id === draft.id); if (idx !== -1) projects.value[idx].name = draft.name.trim(); isEditOpen.value = false }
-const deleteProject = (p: Project) => { projects.value = projects.value.filter(x => x.id !== p.id) }
+const createProject = async () => {
+  const { data } = await supabase.from('projects').insert({ name: draft.name.trim(), admins: [] }).select('id').single()
+  if (data) projects.value.unshift({ id: data.id, name: draft.name.trim(), admins: [] })
+  isCreateOpen.value = false
+}
+const saveProject = async () => {
+  if (!draft.id) return
+  await supabase.from('projects').update({ name: draft.name.trim() }).eq('id', draft.id)
+  const idx = projects.value.findIndex(p => p.id === draft.id); if (idx !== -1) projects.value[idx].name = draft.name.trim(); isEditOpen.value = false
+}
+const deleteProject = async (p: Project) => {
+  await supabase.from('projects').delete().eq('id', p.id)
+  projects.value = projects.value.filter(x => x.id !== p.id)
+}
 
 const manageState = reactive<{ addUser?: string, addAdmin?: string }>({})
-const addUserToProject = () => { if (!selected.value || !manageState.addUser) return; if (!selected.value.users.includes(manageState.addUser)) selected.value.users.push(manageState.addUser); manageState.addUser = undefined }
-const removeUserFromProject = (uid: string) => { if (!selected.value) return; selected.value.users = selected.value.users.filter(u => u !== uid) }
-const addAdminToProject = () => { if (!selected.value || !manageState.addAdmin) return; if (!selected.value.admins.includes(manageState.addAdmin)) selected.value.admins.push(manageState.addAdmin); manageState.addAdmin = undefined }
-const removeAdminFromProject = (uid: string) => { if (!selected.value) return; selected.value.admins = selected.value.admins.filter(u => u !== uid) }
-const displayUser = (uid: string) => { const u = mockUsers.find(x => x.id === uid); return u ? (u.name || u.email) : uid }
+const addUserToProject = async () => { if (!selected.value || !manageState.addUser) return; await supabase.from('user_project_info').upsert({ project_id: selected.value.id, user_id: manageState.addUser, ref_percentage: 10 }); manageState.addUser = undefined; await refreshCounts() }
+const removeUserFromProject = async (uid: string) => { if (!selected.value) return; await supabase.from('user_project_info').delete().eq('project_id', selected.value.id).eq('user_id', uid); await refreshCounts() }
+const addAdminToProject = async () => { if (!selected.value || !manageState.addAdmin) return; const p = projects.value.find(pr => pr.id === selected.value!.id); if (!p) return; const next = Array.from(new Set([...(p.admins || []), manageState.addAdmin])); await supabase.from('projects').update({ admins: next }).eq('id', p.id); p.admins = next; manageState.addAdmin = undefined }
+const removeAdminFromProject = async (uid: string) => { if (!selected.value) return; const p = projects.value.find(pr => pr.id === selected.value!.id); if (!p) return; const next = (p.admins || []).filter(id => id !== uid); await supabase.from('projects').update({ admins: next }).eq('id', p.id); p.admins = next }
+const displayUser = (uid: string) => { const u = allUsers.value.find(x => x.id === uid); return u ? (u.name || u.email) : uid }
 
-const saveUsers = () => { if (!selected.value) return; const idx = projects.value.findIndex(p => p.id === selected.value!.id); if (idx !== -1) projects.value[idx].users = [...(selected.value!.users || [])]; isManageUsersOpen.value = false }
-const saveAdmins = () => { if (!selected.value) return; const idx = projects.value.findIndex(p => p.id === selected.value!.id); if (idx !== -1) projects.value[idx].admins = [...(selected.value!.admins || [])]; isManageAdminsOpen.value = false }
+const saveUsers = () => { isManageUsersOpen.value = false }
+const saveAdmins = () => { isManageAdminsOpen.value = false }
+
+const refreshCounts = async () => {
+  const { data } = await supabase.from('user_project_info').select('project_id, user_id')
+  const counts: Record<string, number> = {}
+  ;(data || []).forEach(r => { counts[r.project_id] = (counts[r.project_id] || 0) + 1 })
+  projectIdToUsersCount.value = counts
+}
+
+onMounted(async () => {
+  const [{ data: projs }, { data: users }] = await Promise.all([
+    supabase.from('projects').select('id, name, admins').order('name'),
+    supabase.from('user_profiles').select('id, email, name')
+  ])
+  projects.value = projs || []
+  allUsers.value = users || []
+  await refreshCounts()
+})
 </script>
 
 <template>

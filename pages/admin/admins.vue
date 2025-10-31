@@ -2,13 +2,9 @@
 definePageMeta({ middleware: ['auth','admin'] })
 useSeoMeta({ title: 'Admin - Admins' })
 
-// Mock data instead of API (temporary)
 const isLoading = ref(false)
 const admins = ref<any[]>([])
-const mockAdmins = ref<any[]>([
-  { id: 'a-1', email: 'admin1@example.com', name: 'Admin One', created_at: new Date().toISOString() },
-  { id: 'a-2', email: 'admin2@example.com', name: 'Admin Two', created_at: new Date(Date.now()-43200000).toISOString() },
-])
+const supabase = useSupabaseClient()
 
 const form = reactive({
   email: '',
@@ -18,7 +14,11 @@ const form = reactive({
 const isInviteOpen = ref(false)
 
 const fetchAdmins = async () => {
-  admins.value = [...mockAdmins.value]
+  const { data } = await supabase
+    .from('admins')
+    .select('id, email, name, created_at')
+    .order('created_at', { ascending: false })
+  admins.value = data || []
 }
 
 onMounted(fetchAdmins)
@@ -26,8 +26,7 @@ onMounted(fetchAdmins)
 const inviteAdmin = async () => {
   try {
     isLoading.value = true
-    const id = `a-${Date.now()}`
-    mockAdmins.value.unshift({ id, email: form.email, name: form.name, created_at: new Date().toISOString() })
+    await $fetch('/api/admin/invite', { method: 'POST', body: { email: form.email, name: form.name, makeAdmin: true } })
     await fetchAdmins()
     form.email = ''
     form.name = ''

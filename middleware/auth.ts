@@ -1,4 +1,6 @@
 export default defineNuxtRouteMiddleware(() => {
-	// TEMP: bypass auth to allow direct access without sign-in
-	return
+	const user = useSupabaseUser()
+	if (!user.value) {
+		return navigateTo('/sign-in')
+	}
 })
