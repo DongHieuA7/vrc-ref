@@ -16,7 +16,7 @@ const allUsers = ref<any[]>([])
 // Filters
 const selectedProject = ref<string>('')
 const selectedStatus = ref<string>('')
-const selectedYear = ref<number | string>(new Date().getFullYear())
+const selectedYear = ref<number | string>('')
 const selectedMonth = ref<string>('')
 
 // Edit modal
@@ -90,6 +90,28 @@ const getUserName = (userId: string) => {
 
 const { formatDate, formatValue, formatStatus, statusColor } = useCommissionFormatters()
 
+// Helper function to extract date parts from various date formats
+const getDateString = (dateValue: any): string => {
+  if (!dateValue) return ''
+  
+  // If it's already a string, return it
+  if (typeof dateValue === 'string') {
+    return dateValue
+  }
+  
+  // If it's a Date object or timestamp, convert to ISO string
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString()
+  }
+  
+  // If it's a number (timestamp), convert to ISO string
+  if (typeof dateValue === 'number') {
+    return new Date(dateValue).toISOString()
+  }
+  
+  return String(dateValue)
+}
+
 // Filtered commissions
 const filteredCommissions = computed(() => {
   let filtered = commissions.value
@@ -102,18 +124,42 @@ const filteredCommissions = computed(() => {
     filtered = filtered.filter(c => c.status === selectedStatus.value)
   }
   
-  if (selectedYear.value) {
-    filtered = filtered.filter(c => (c.date || '').slice(0,4) === String(selectedYear.value))
+  // Filter by year if selected
+  if (selectedYear.value && selectedYear.value !== '') {
+    const yearStr = String(selectedYear.value)
+    filtered = filtered.filter(c => {
+      const dateStr = getDateString(c.date)
+      if (!dateStr) return false
+      // Extract year from date string (format: YYYY-MM-DD or ISO)
+      const year = dateStr.slice(0, 4)
+      return year === yearStr
+    })
   }
   
-  if (selectedMonth.value) {
-    filtered = filtered.filter(c => (c.date || '').slice(0,7) === selectedMonth.value)
+  // Filter by month if selected (format: YYYY-MM)
+  if (selectedMonth.value && selectedMonth.value !== '') {
+    const monthStr = selectedMonth.value // Format: "YYYY-MM"
+    filtered = filtered.filter(c => {
+      const dateStr = getDateString(c.date)
+      if (!dateStr) return false
+      // Extract year-month from date string (format: YYYY-MM-DD or ISO)
+      const yearMonth = dateStr.slice(0, 7) // "YYYY-MM"
+      return yearMonth === monthStr
+    })
   }
   
   return filtered
 })
 
 const { yearOptions, monthOptions } = useDateFilters(selectedYear, selectedMonth)
+
+// Reset all filters
+const resetFilters = () => {
+  selectedProject.value = ''
+  selectedStatus.value = ''
+  selectedYear.value = ''
+  selectedMonth.value = ''
+}
 
 // Status options
 const statusOptions = computed(() => [
@@ -136,24 +182,31 @@ const capitalize = (str: string) => {
 
 // Open edit modal
 const openEdit = (row: any) => {
-  if (!row || !row.id) return
+  if (!row || !row.id) {
+    console.warn('Invalid row data:', row)
+    return
+  }
   
-  // Reset form first
-  editDraft.id = ''
-  editDraft.contract_amount = null
-  editDraft.commission_rate = null
-  editDraft.status = 'requested'
-  editDraft.client_name = ''
-  editDraft.description = ''
+  console.log('Opening edit for commission:', row.id, row)
   
-  // Use nextTick to ensure modal is ready before setting values
+  // Set values directly - convert null/undefined to empty strings for text inputs
+  editDraft.id = row.id || ''
+  // Use contract_amount if available, otherwise try original_value, otherwise null
+  editDraft.contract_amount = (row.contract_amount != null && row.contract_amount !== '') 
+    ? Number(row.contract_amount) 
+    : (row.original_value != null && row.original_value !== '') 
+      ? Number(row.original_value) 
+      : null
+  editDraft.commission_rate = (row.commission_rate != null && row.commission_rate !== '') 
+    ? Number(row.commission_rate) 
+    : null
+  editDraft.status = row.status || 'requested'
+  // Always use string (not null) for text inputs to ensure they display
+  editDraft.client_name = (row.client_name != null) ? String(row.client_name) : ''
+  editDraft.description = (row.description != null) ? String(row.description) : ''
+  
+  // Use nextTick to ensure reactive updates are applied
   nextTick(() => {
-    editDraft.id = row.id
-    editDraft.contract_amount = row.contract_amount != null ? Number(row.contract_amount) : null
-    editDraft.commission_rate = row.commission_rate != null ? Number(row.commission_rate) : null
-    editDraft.status = row.status || 'requested'
-    editDraft.client_name = row.client_name || ''
-    editDraft.description = row.description || ''
     isEditOpen.value = true
   })
 }
@@ -225,10 +278,8 @@ onMounted(async () => {
     fetchUsers(),
   ])
   
-  // Set default to current month/year
-  const now = new Date()
-  selectedYear.value = now.getFullYear()
-  selectedMonth.value = `${selectedYear.value}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  // Don't set default filters - show all commissions by default
+  // This ensures paid commissions are visible
 })
 </script>
 
@@ -265,6 +316,16 @@ onMounted(async () => {
               class="min-w-[150px]"
               :disabled="!selectedYear"
             />
+            <UButton 
+              v-if="selectedProject || selectedStatus || selectedYear || selectedMonth"
+              color="gray" 
+              variant="soft" 
+              size="xs"
+              @click="resetFilters"
+              icon="i-lucide-x"
+            >
+              {{ $t('common.reset') || 'Reset' }}
+            </UButton>
           </div>
         </div>
       </template>

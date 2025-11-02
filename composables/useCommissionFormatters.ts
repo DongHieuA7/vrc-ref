@@ -3,11 +3,13 @@ import { useI18n } from '#imports'
 export const useCommissionFormatters = () => {
   const { t } = useI18n()
 
-  const formatDate = (input: string) => {
+  const formatDate = (input: string | null | undefined) => {
+    if (!input) return '—'
     const d = new Date(input)
     if (isNaN(d.getTime())) return input
     const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    // Format: DD/MM/YYYY HH:mm
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
   const formatValue = (value: number | string | null | undefined, currency: string = 'USD') => {

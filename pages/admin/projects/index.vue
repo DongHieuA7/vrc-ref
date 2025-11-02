@@ -544,11 +544,7 @@ onMounted(async () => {
     <UCard>
       <template #header>
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <h2 class="font-semibold">{{ $t('common.projects') }}</h2>
-            <UBadge v-if="isGlobalAdminValue" color="blue" variant="soft">{{ $t('admin.globalAdmin') || 'Global Admin' }}</UBadge>
-            <UBadge v-else color="gray" variant="soft">{{ $t('admin.projectOwner') || 'Project Owner' }}</UBadge>
-          </div>
+          <h2 class="font-semibold">{{ $t('common.projects') }}</h2>
           <UButton 
             color="primary" 
             @click="openCreate"

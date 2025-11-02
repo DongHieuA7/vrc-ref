@@ -8,6 +8,7 @@ useSeoMeta({ title: `Admin - ${t('users.users')}` })
 const isLoading = ref(false)
 const users = ref<any[]>([])
 const supabase = useSupabaseClient()
+const { formatDate } = useCommissionFormatters()
 
 const form = reactive({
   email: '',
@@ -143,6 +144,9 @@ const invite = async () => {
           ]">
             <template #email-data="{ row }">
               <NuxtLink class="text-primary hover:underline" :to="`/admin/users/${row.id}`">{{ row.email }}</NuxtLink>
+            </template>
+            <template #created_at-data="{ row }">
+              <span>{{ formatDate(row.created_at) }}</span>
             </template>
             <template #actions-data="{ row }">
               <div class="flex gap-2">

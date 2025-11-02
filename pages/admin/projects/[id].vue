@@ -625,11 +625,7 @@ const savePolicy = async () => {
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <NuxtLink class="text-sm text-gray-500 hover:underline" to="/admin/projects">← {{ $t('common.back') }}</NuxtLink>
-            <div class="flex items-center gap-2">
-              <h2 class="font-semibold">{{ $t('admin.projectDetailTitle', { name: project?.name || projectId }) }}</h2>
-              <UBadge v-if="isGlobalAdminValue" color="blue" variant="soft">{{ $t('admin.globalAdmin') || 'Global Admin' }}</UBadge>
-              <UBadge v-else-if="canManageProjectValue" color="gray" variant="soft">{{ $t('admin.projectOwner') || 'Project Owner' }}</UBadge>
-            </div>
+            <h2 class="font-semibold">{{ $t('admin.projectDetailTitle', { name: project?.name || projectId }) }}</h2>
           </div>
           <div class="flex items-center gap-3">
             <span class="text-sm text-gray-500">{{ $t('common.filter') }}</span>
@@ -686,7 +682,25 @@ const savePolicy = async () => {
               { key: 'actions', label: $t('common.actions') },
             ]">
               <template #name-data="{ row }">
-                <span>{{ adminLabel(row.uid) }}</span>
+                <div class="flex items-center gap-2">
+                  <span>{{ adminLabel(row.uid) }}</span>
+                  <UBadge 
+                    v-if="allAdmins.find(a => a.id === row.uid)?.role === 'global_admin'" 
+                    color="blue" 
+                    variant="soft"
+                    size="xs"
+                  >
+                    {{ $t('admin.globalAdmin') || 'Global Admin' }}
+                  </UBadge>
+                  <UBadge 
+                    v-else-if="allAdmins.find(a => a.id === row.uid)?.role === 'project_owner'" 
+                    color="gray" 
+                    variant="soft"
+                    size="xs"
+                  >
+                    {{ $t('admin.projectOwner') || 'Project Owner' }}
+                  </UBadge>
+                </div>
               </template>
               <template #email-data="{ row }">
                 <span>{{ allAdmins.find(a => a.id === row.uid)?.email || '-' }}</span>

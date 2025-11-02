@@ -7,6 +7,9 @@ useSeoMeta({ title: `Admin - ${t('users.admins')}` })
 const isLoading = ref(false)
 const admins = ref<any[]>([])
 const supabase = useSupabaseClient()
+const { isGlobalAdmin } = useAdminRole()
+const isGlobalAdminValue = ref(false)
+const { formatDate } = useCommissionFormatters()
 
 const form = reactive({
   email: '',
@@ -23,7 +26,10 @@ const fetchAdmins = async () => {
   admins.value = data || []
 }
 
-onMounted(fetchAdmins)
+onMounted(async () => {
+  isGlobalAdminValue.value = await isGlobalAdmin()
+  await fetchAdmins()
+})
 
 const inviteAdmin = async () => {
   try {
@@ -73,7 +79,10 @@ const inviteAdmin = async () => {
     <UCard>
       <template #header>
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold">{{ $t('users.admins') }}</h2>
+          <div class="flex items-center gap-2">
+            <h2 class="font-semibold">{{ $t('users.admins') }}</h2>
+            <UBadge v-if="isGlobalAdminValue" color="blue" variant="soft">{{ $t('admin.globalAdmin') || 'Global Admin' }}</UBadge>
+          </div>
           <UButton color="primary" @click="isInviteOpen = true">{{ $t('users.inviteAdmin') }}</UButton>
         </div>
       </template>
@@ -82,7 +91,11 @@ const inviteAdmin = async () => {
         { key: 'email', label: $t('common.email') },
         { key: 'name', label: $t('common.name') },
         { key: 'created_at', label: $t('projects.created') },
-      ]" />
+      ]">
+        <template #created_at-data="{ row }">
+          <span>{{ formatDate(row.created_at) }}</span>
+        </template>
+      </UTable>
     </UCard>
 
     <UModal v-model="isInviteOpen">
