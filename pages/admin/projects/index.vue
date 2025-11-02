@@ -620,7 +620,7 @@ onMounted(async () => {
         <template #header>
           <h3 class="font-semibold">{{ $t('projects.newProject') }}</h3>
         </template>
-        <div class="space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-hidden pb-4">
+        <div class="space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pb-4" style="padding-left: 0.25rem; padding-right: 0.25rem;">
           <UFormGroup :label="$t('projects.projectName')">
             <UInput v-model="draft.name" @keyup.enter="createProject" />
           </UFormGroup>

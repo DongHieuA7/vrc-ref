@@ -21,7 +21,7 @@ const isInviteOpen = ref(false)
 const fetchAdmins = async () => {
   const { data } = await supabase
     .from('admins')
-    .select('id, email, name, created_at')
+    .select('id, email, name, created_at, role')
     .order('created_at', { ascending: false })
   admins.value = data || []
 }
@@ -79,10 +79,7 @@ const inviteAdmin = async () => {
     <UCard>
       <template #header>
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <h2 class="font-semibold">{{ $t('users.admins') }}</h2>
-            <UBadge v-if="isGlobalAdminValue" color="blue" variant="soft">{{ $t('admin.globalAdmin') || 'Global Admin' }}</UBadge>
-          </div>
+          <h2 class="font-semibold">{{ $t('users.admins') }}</h2>
           <UButton color="primary" @click="isInviteOpen = true">{{ $t('users.inviteAdmin') }}</UButton>
         </div>
       </template>
@@ -92,6 +89,27 @@ const inviteAdmin = async () => {
         { key: 'name', label: $t('common.name') },
         { key: 'created_at', label: $t('projects.created') },
       ]">
+        <template #name-data="{ row }">
+          <div class="flex items-center gap-2">
+            <span>{{ row.name || row.email }}</span>
+            <UBadge 
+              v-if="row.role === 'global_admin'" 
+              color="blue" 
+              variant="soft"
+              size="xs"
+            >
+              {{ $t('admin.globalAdmin') || 'Global Admin' }}
+            </UBadge>
+            <UBadge 
+              v-else-if="row.role === 'project_owner'" 
+              color="gray" 
+              variant="soft"
+              size="xs"
+            >
+              {{ $t('admin.projectOwner') || 'Project Owner' }}
+            </UBadge>
+          </div>
+        </template>
         <template #created_at-data="{ row }">
           <span>{{ formatDate(row.created_at) }}</span>
         </template>
