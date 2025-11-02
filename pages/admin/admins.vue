@@ -135,17 +135,6 @@ const removeProjectOwner = async (adminId: string) => {
     return
   }
 
-  // Cannot remove yourself
-  if (adminId === currentAdminId.value) {
-    const toast = useToast()
-    toast.add({
-      color: 'red',
-      title: t('admin.cannotRemoveYourself'),
-      description: t('admin.cannotRemoveYourselfMessage'),
-    })
-    return
-  }
-
   // Check if it's a global admin (cannot remove)
   const admin = admins.value.find(a => a.id === adminId)
   if (admin?.role === 'global_admin') {

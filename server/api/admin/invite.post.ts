@@ -119,10 +119,26 @@ export default defineEventHandler(async (event) => {
 
   if (userId) {
     if (body.makeAdmin) {
-      // If user is being set as admin, create admin record and delete from user_profiles
+      // Check if admin already exists to preserve their role
+      const { data: existingAdminWithRole } = await adminClient
+        .from('admins')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle()
+      
+      // Role: preserve existing role if admin already exists, otherwise global_admin for all new admins
+      let adminRole = 'global_admin'
+      if (existingAdminWithRole?.role) {
+        // Preserve existing role
+        adminRole = existingAdminWithRole.role
+      } else {
+        // All new admins (both invited and added) get global_admin role
+        adminRole = 'global_admin'
+      }
+      
       const { error: adminErr } = await adminClient
         .from('admins')
-        .upsert({ id: userId, email: body.email, name: body.name || null }, { onConflict: 'id' })
+        .upsert({ id: userId, email: body.email, name: body.name || null, role: adminRole }, { onConflict: 'id' })
       if (adminErr) {
         throw createError({ statusCode: 500, statusMessage: 'Failed to create admin' })
       }
