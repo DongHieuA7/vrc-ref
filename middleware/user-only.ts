@@ -13,9 +13,9 @@ export default defineNuxtRouteMiddleware(async () => {
     .eq('id', user.value.id)
     .maybeSingle()
 
-  // If user is admin, redirect to admin commissions
+  // If user is admin, redirect to admin my-projects
   if (!error && data) {
-    return navigateTo('/admin/commissions')
+    return navigateTo('/admin/projects/my-projects')
   }
 })
 

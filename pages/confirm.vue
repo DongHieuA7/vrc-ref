@@ -17,8 +17,8 @@ const checkAndRedirect = async () => {
       .maybeSingle()
     
     if (data) {
-      // User is admin, redirect to admin commissions
-      return navigateTo('/admin/commissions')
+      // User is admin, redirect to admin my-projects
+      return navigateTo('/admin/projects/my-projects')
     } else {
       // User is regular user, redirect to commissions
       return navigateTo('/commissions')

@@ -21,27 +21,63 @@ const adminNavItems = computed(() => [
 
 // Check if user is admin
 const isAdmin = ref(false)
+const adminRole = ref<string | null>(null)
+const isProjectOwner = ref(false)
 
 const checkAdminStatus = async () => {
   if (!user.value) {
     isAdmin.value = false
+    adminRole.value = null
+    isProjectOwner.value = false
     return
   }
 
   const { data, error } = await supabase
     .from('admins')
-    .select('id')
+    .select('id, role')
     .eq('id', user.value.id)
     .maybeSingle()
 
   isAdmin.value = !error && !!data
+  adminRole.value = data?.role || null
+  
+  // Check if user is project owner (either role='project_owner' or has projects)
+  if (isAdmin.value && adminRole.value !== 'global_admin') {
+    // Check if user is in any project's admins array
+    const { data: projectsData } = await supabase
+      .from('projects')
+      .select('admins')
+    
+    if (projectsData) {
+      isProjectOwner.value = projectsData.some(p => 
+        p.admins && Array.isArray(p.admins) && p.admins.includes(user.value!.id)
+      ) || adminRole.value === 'project_owner'
+    } else {
+      isProjectOwner.value = adminRole.value === 'project_owner'
+    }
+  } else {
+    isProjectOwner.value = false
+  }
 }
 
 // Computed navItems based on role
-// If admin, only show admin items; if user, only show user items
+// If admin, show admin items filtered by role; if user, show user items
 const navItems = computed(() => {
   if (isAdmin.value) {
-    return [...adminNavItems.value]
+    // Filter admin nav items based on role
+    const filtered = adminNavItems.value.filter(item => {
+      // Admin Projects - only for global_admin
+      if (item.to === '/admin/projects') {
+        return adminRole.value === 'global_admin'
+      }
+      // My Projects - only for project_owner
+      if (item.to === '/admin/projects/my-projects') {
+        return isProjectOwner.value
+      }
+      // Other admin items (admins, users) - show for all admins
+      return true
+    })
+    return filtered
   }
   return [...userNavItems.value]
 })
