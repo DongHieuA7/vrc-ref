@@ -8,7 +8,7 @@ const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const currentAdminId = computed(() => user.value?.id || '')
 
-type Project = { id: string, name: string, admins: string[] }
+type Project = { id: string, name: string, admins: string[], commission_rate_min?: number | null, commission_rate_max?: number | null, policy?: string | null }
 const projects = ref<Project[]>([])
 const allUsers = ref<any[]>([])
 const allAdmins = ref<any[]>([])
@@ -18,7 +18,20 @@ const isEditOpen = ref(false)
 const isManageUsersOpen = ref(false)
 const isManageAdminsOpen = ref(false)
 
-const draft = reactive<{ id?: string, name: string, selectedUsers: string[] }>({ name: '', selectedUsers: [] })
+const draft = reactive<{ 
+  id?: string, 
+  name: string, 
+  selectedUsers: string[],
+  commission_rate_min?: number | null,
+  commission_rate_max?: number | null,
+  policy?: string | null
+}>({ 
+  name: '', 
+  selectedUsers: [],
+  commission_rate_min: null,
+  commission_rate_max: null,
+  policy: null
+})
 const selected = ref<Project | null>(null)
 
 // Check if current user is admin of a project
@@ -66,10 +79,20 @@ const openCreate = () => {
   draft.id = undefined
   draft.name = ''
   draft.selectedUsers = []
+  draft.commission_rate_min = null
+  draft.commission_rate_max = null
+  draft.policy = null
   isCreateOpen.value = true 
 }
 
-const openEdit = (p: Project) => { draft.id = p.id; draft.name = p.name; isEditOpen.value = true }
+const openEdit = (p: Project) => { 
+  draft.id = p.id
+  draft.name = p.name
+  draft.commission_rate_min = p.commission_rate_min || null
+  draft.commission_rate_max = p.commission_rate_max || null
+  draft.policy = p.policy || null
+  isEditOpen.value = true 
+}
 
 const createProject = async () => {
   if (!currentAdminId.value) {
@@ -87,7 +110,13 @@ const createProject = async () => {
   
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name: draft.name.trim(), admins })
+    .insert({ 
+      name: draft.name.trim(), 
+      admins,
+      commission_rate_min: draft.commission_rate_min || null,
+      commission_rate_max: draft.commission_rate_max || null,
+      policy: draft.policy || null
+    })
     .select('id')
     .single()
   
@@ -103,7 +132,14 @@ const createProject = async () => {
   }
   
   if (data) {
-    const newProject = { id: data.id, name: draft.name.trim(), admins }
+    const newProject = { 
+      id: data.id, 
+      name: draft.name.trim(), 
+      admins,
+      commission_rate_min: draft.commission_rate_min || null,
+      commission_rate_max: draft.commission_rate_max || null,
+      policy: draft.policy || null
+    }
     projects.value.unshift(newProject)
     
     // Add selected users to project if any
@@ -129,6 +165,9 @@ const createProject = async () => {
   
   isCreateOpen.value = false
   draft.selectedUsers = []
+  draft.commission_rate_min = null
+  draft.commission_rate_max = null
+  draft.policy = null
 }
 const saveProject = async () => {
   if (!draft.id) return
@@ -148,8 +187,20 @@ const saveProject = async () => {
     return
   }
   
-  await supabase.from('projects').update({ name: draft.name.trim() }).eq('id', draft.id)
-  const idx = projects.value.findIndex(p => p.id === draft.id); if (idx !== -1) projects.value[idx].name = draft.name.trim(); isEditOpen.value = false
+  await supabase.from('projects').update({ 
+    name: draft.name.trim(),
+    commission_rate_min: draft.commission_rate_min || null,
+    commission_rate_max: draft.commission_rate_max || null,
+    policy: draft.policy || null
+  }).eq('id', draft.id)
+  const idx = projects.value.findIndex(p => p.id === draft.id)
+  if (idx !== -1) {
+    projects.value[idx].name = draft.name.trim()
+    projects.value[idx].commission_rate_min = draft.commission_rate_min || null
+    projects.value[idx].commission_rate_max = draft.commission_rate_max || null
+    projects.value[idx].policy = draft.policy || null
+  }
+  isEditOpen.value = false
 }
 
 const deleteProject = async (p: Project) => {
@@ -352,7 +403,7 @@ const refreshCounts = async () => {
 
 onMounted(async () => {
   const [{ data: projs }, { data: users }, { data: admins }] = await Promise.all([
-    supabase.from('projects').select('id, name, admins').order('name'),
+    supabase.from('projects').select('id, name, admins, commission_rate_min, commission_rate_max, policy').order('name'),
     supabase.from('user_profiles').select('id, email, name'),
     supabase.from('admins').select('id, email, name')
   ])
@@ -429,9 +480,36 @@ onMounted(async () => {
         <template #header>
           <h3 class="font-semibold">{{ $t('projects.newProject') }}</h3>
         </template>
-        <div class="space-y-4">
+        <div class="space-y-4 max-h-[70vh] overflow-y-auto">
           <UFormGroup :label="$t('projects.projectName')">
             <UInput v-model="draft.name" @keyup.enter="createProject" />
+          </UFormGroup>
+          <UFormGroup :label="$t('projects.commissionRateMin')">
+            <UInput 
+              v-model.number="(draft as any).commission_rate_min" 
+              type="number" 
+              step="0.01" 
+              min="0" 
+              max="100"
+              :placeholder="$t('projects.commissionRateMinPlaceholder')"
+            />
+          </UFormGroup>
+          <UFormGroup :label="$t('projects.commissionRateMax')">
+            <UInput 
+              v-model.number="(draft as any).commission_rate_max" 
+              type="number" 
+              step="0.01" 
+              min="0" 
+              max="100"
+              :placeholder="$t('projects.commissionRateMaxPlaceholder')"
+            />
+          </UFormGroup>
+          <UFormGroup :label="$t('projects.policy')">
+            <UTextarea 
+              v-model="(draft as any).policy" 
+              :rows="4"
+              :placeholder="$t('projects.policyPlaceholder')"
+            />
           </UFormGroup>
           <UFormGroup :label="$t('projects.addUsers')">
             <USelectMenu 
@@ -440,6 +518,7 @@ onMounted(async () => {
               :placeholder="$t('projects.selectUsersToAdd')"
               multiple
               searchable
+              class="max-h-48 overflow-y-auto"
             />
             <p class="text-xs text-gray-500 mt-1">{{ $t('projects.autoAdminNote') }}</p>
           </UFormGroup>
@@ -462,6 +541,33 @@ onMounted(async () => {
         <div class="space-y-4">
           <UFormGroup :label="$t('common.name')">
             <UInput v-model="draft.name" @keyup.enter="saveProject" />
+          </UFormGroup>
+          <UFormGroup :label="$t('projects.commissionRateMin')">
+            <UInput 
+              v-model.number="(draft as any).commission_rate_min" 
+              type="number" 
+              step="0.01" 
+              min="0" 
+              max="100"
+              :placeholder="$t('projects.commissionRateMinPlaceholder')"
+            />
+          </UFormGroup>
+          <UFormGroup :label="$t('projects.commissionRateMax')">
+            <UInput 
+              v-model.number="(draft as any).commission_rate_max" 
+              type="number" 
+              step="0.01" 
+              min="0" 
+              max="100"
+              :placeholder="$t('projects.commissionRateMaxPlaceholder')"
+            />
+          </UFormGroup>
+          <UFormGroup :label="$t('projects.policy')">
+            <UTextarea 
+              v-model="(draft as any).policy" 
+              :rows="4"
+              :placeholder="$t('projects.policyPlaceholder')"
+            />
           </UFormGroup>
         </div>
         <template #footer>

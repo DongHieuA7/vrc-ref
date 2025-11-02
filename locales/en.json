@@ -76,13 +76,23 @@
     "approve": "Approve",
     "reject": "Reject",
     "requestSubmitted": "Request submitted",
-    "requestSubmittedDescription": "Your join request has been submitted and is pending approval."
+    "requestSubmittedDescription": "Your join request has been submitted and is pending approval.",
+    "commissionRateMin": "Commission Rate Min (%)",
+    "commissionRateMax": "Commission Rate Max (%)",
+    "commissionRateMinPlaceholder": "e.g. 5.0",
+    "commissionRateMaxPlaceholder": "e.g. 15.0",
+    "policy": "Policy",
+    "policyPlaceholder": "Enter policy details here...",
+    "commissionRateRange": "Commission Rate",
+    "viewPolicy": "View Policy"
   },
   "commissions": {
     "myCommissionRequests": "My Commission Requests",
     "newCommission": "Add Request",
     "editCommission": "Edit Commission",
     "projectsJoined": "Projects Joined",
+    "receivedCommission": "Received Commission",
+    "pendingCommission": "Pending Commission",
     "totalReceived": "Total Received",
     "totalClaimed": "Total Claimed",
     "totalNotClaimed": "Total Not Claimed",
@@ -94,8 +104,13 @@
     "noCommissions": "No commissions found",
     "commissionReceived": "Commission Received",
     "requested": "Requested",
+    "confirmed": "Confirmed",
+    "paid": "Paid",
     "approved": "Approved",
-    "claimed": "Claimed"
+    "claimed": "Claimed",
+    "contractAmount": "Contract Amount",
+    "commissionRate": "Commission Rate (%)",
+    "commissionAmount": "Commission Amount"
   },
   "users": {
     "inviteUser": "Invite User",

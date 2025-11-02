@@ -14,17 +14,18 @@ const isLoading = ref(false)
 
 // Request form
 const isRequestOpen = ref(false)
+const isPolicyOpen = ref(false)
 const selectedProject = ref<string>('')
+const selectedProjectData = ref<any>(null)
 const requestForm = reactive({
   message: '',
-  ref_percentage: 10 as number,
 })
 
 // Fetch all projects
 const fetchProjects = async () => {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, name, created_at')
+    .select('id, name, created_at, commission_rate_min, commission_rate_max, policy')
     .order('name')
   
   if (error) {
@@ -87,9 +88,15 @@ const hasPendingRequest = (projectId: string) => {
 // Open request modal
 const openRequestModal = (projectId: string) => {
   selectedProject.value = projectId
+  selectedProjectData.value = projects.value.find(p => p.id === projectId)
   requestForm.message = ''
-  requestForm.ref_percentage = 10
   isRequestOpen.value = true
+}
+
+// Open policy modal
+const openPolicyModal = (project: any) => {
+  selectedProjectData.value = project
+  isPolicyOpen.value = true
 }
 
 // Submit join request
@@ -105,7 +112,7 @@ const submitJoinRequest = async () => {
         project_id: selectedProject.value,
         user_id: user.value.id,
         message: requestForm.message || null,
-        ref_percentage: requestForm.ref_percentage,
+        ref_percentage: null, // User cannot set commission rate
         status: 'pending',
       })
     
@@ -161,9 +168,31 @@ onMounted(async () => {
             </div>
           </template>
           
-          <div class="space-y-2">
+          <div class="space-y-3">
             <div class="text-sm text-gray-500">
               {{ $t('projects.created') }}: {{ new Date(project.created_at).toLocaleDateString('en-GB') }}
+            </div>
+            
+            <!-- Commission Rate Range -->
+            <div v-if="project.commission_rate_min != null || project.commission_rate_max != null" class="text-sm">
+              <span class="font-medium text-gray-700">{{ $t('projects.commissionRateRange') }}:</span>
+              <span class="text-gray-600 ml-1">
+                {{ project.commission_rate_min != null ? `${project.commission_rate_min}%` : '' }}
+                <span v-if="project.commission_rate_min != null && project.commission_rate_max != null"> - </span>
+                {{ project.commission_rate_max != null ? `${project.commission_rate_max}%` : '' }}
+              </span>
+            </div>
+            
+            <!-- Policy -->
+            <div v-if="project.policy" class="text-sm">
+              <UButton 
+                color="gray" 
+                variant="soft" 
+                size="xs"
+                @click="openPolicyModal(project)"
+              >
+                {{ $t('projects.viewPolicy') }}
+              </UButton>
             </div>
             
             <div v-if="!isUserInProject(project.id) && !hasPendingRequest(project.id)" class="pt-2">
@@ -194,20 +223,19 @@ onMounted(async () => {
                 disabled 
               />
             </UFormGroup>
+            <!-- Show Commission Rate Range (read-only) -->
+            <UFormGroup v-if="selectedProjectData && (selectedProjectData.commission_rate_min != null || selectedProjectData.commission_rate_max != null)" :label="$t('projects.commissionRateRange')">
+              <UInput 
+                :value="`${selectedProjectData.commission_rate_min != null ? selectedProjectData.commission_rate_min : ''}${selectedProjectData.commission_rate_min != null && selectedProjectData.commission_rate_max != null ? ' - ' : ''}${selectedProjectData.commission_rate_max != null ? selectedProjectData.commission_rate_max : ''}%`"
+                disabled
+                class="bg-gray-50"
+              />
+            </UFormGroup>
             <UFormGroup :label="$t('projects.message')">
               <UTextarea 
                 v-model="requestForm.message" 
                 :placeholder="$t('projects.whyJoin')"
                 :rows="3"
-              />
-            </UFormGroup>
-            <UFormGroup :label="$t('projects.referralPercentage')">
-              <UInput 
-                v-model.number="requestForm.ref_percentage" 
-                type="number" 
-                min="0" 
-                max="100" 
-                step="0.1"
               />
             </UFormGroup>
           </div>
@@ -223,6 +251,27 @@ onMounted(async () => {
               :disabled="isLoading"
             >
               {{ $t('projects.submitRequest') }}
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+    </UModal>
+
+    <!-- Policy Modal -->
+    <UModal v-model="isPolicyOpen">
+      <UCard>
+        <template #header>
+          <h3 class="font-semibold">{{ $t('projects.policy') }} - {{ selectedProjectData?.name }}</h3>
+        </template>
+        <div class="space-y-4">
+          <div class="whitespace-pre-wrap text-sm text-gray-700">
+            {{ selectedProjectData?.policy || $t('common.noData') }}
+          </div>
+        </div>
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton color="gray" variant="soft" @click="isPolicyOpen = false">
+              {{ $t('common.cancel') }}
             </UButton>
           </div>
         </template>

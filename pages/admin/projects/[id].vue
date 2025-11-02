@@ -24,7 +24,7 @@ const allUsers = ref<any[]>([])
 // All admins from admins table
 const allAdmins = ref<any[]>([])
 
-type Commission = { id: string, user_id: string, project_id: string, description: string, date: string, status: 'requested'|'approved'|'claimed', value: number, original_value?: number | null, currency?: string }
+type Commission = { id: string, user_id: string, project_id: string, description: string, date: string, status: 'requested'|'confirmed'|'paid', value: number, original_value?: number | null, currency?: string, contract_amount?: number | null, commission_rate?: number | null }
 
 type JoinRequest = { 
   id: string, 
@@ -37,7 +37,7 @@ type JoinRequest = {
   updated_at: string | null
 }
 
-const statuses = ['requested','approved','claimed']
+const statuses = ['requested','confirmed','paid']
 const commissions = ref<Commission[]>([])
 const joinRequests = ref<JoinRequest[]>([])
 
@@ -203,7 +203,7 @@ const fetchAllAdmins = async () => {
 const fetchCommissions = async () => {
   const { data, error } = await supabase
     .from('commissions')
-    .select('id, user_id, project_id, description, date, status, value, original_value, currency')
+    .select('id, user_id, project_id, description, date, status, value, original_value, currency, contract_amount, commission_rate')
     .eq('project_id', projectId.value)
     .order('date', { ascending: false })
   
@@ -221,6 +221,8 @@ const fetchCommissions = async () => {
     status: c.status,
     value: Number(c.value),
     currency: c.currency || 'USD',
+    contract_amount: c.contract_amount || null,
+    commission_rate: c.commission_rate || null,
   }))
 }
 
@@ -254,10 +256,10 @@ const approveJoinRequest = async (request: JoinRequest) => {
     return
   }
   
-  // Update request status
+  // Update request status  
   const { error: updateError } = await supabase
     .from('project_join_requests')
-    .update({ status: 'approved' })
+    .update({ status: 'approved' }) // Keep 'approved' for join requests, this is different from commission status
     .eq('id', request.id)
   
   if (updateError) {
@@ -311,8 +313,8 @@ const rejectJoinRequest = async (request: JoinRequest) => {
   await fetchJoinRequests()
 }
 
-// Approve commission
-const approveCommission = async (c: Commission) => {
+// Confirm commission
+const confirmCommission = async (c: Commission) => {
   if (c.status !== 'requested') return
   
   if (!isProjectAdmin.value) {
@@ -325,26 +327,31 @@ const approveCommission = async (c: Commission) => {
     return
   }
   
-  // Get ref_percentage from user_project_info
-  const refInfo = userRefInfo.value[c.user_id]
-  const refPercentage = refInfo?.ref_percentage || 0
-  
-  // Calculate new value: value * (ref_percentage / 100)
-  // Get original value (if exists, use it; otherwise use current value)
-  const currentOriginalValue = c.original_value != null ? Number(c.original_value || 0) : Number(c.value || 0)
-  const approvedValue = currentOriginalValue * (refPercentage / 100)
+  // Calculate commission amount from contract_amount and commission_rate
+  let calculatedValue = c.value
+  if (c.contract_amount != null && c.commission_rate != null) {
+    calculatedValue = Number(c.contract_amount || 0) * (Number(c.commission_rate || 0) / 100)
+  } else {
+    // Fallback: Get ref_percentage from user_project_info
+    const refInfo = userRefInfo.value[c.user_id]
+    const refPercentage = refInfo?.ref_percentage || 0
+    
+    // Get original value (if exists, use it; otherwise use current value)
+    const currentOriginalValue = c.original_value != null ? Number(c.original_value || 0) : Number(c.value || 0)
+    calculatedValue = currentOriginalValue * (refPercentage / 100)
+  }
   
   const { error } = await supabase
     .from('commissions')
     .update({ 
-      status: 'approved',
-      value: approvedValue,
-      original_value: currentOriginalValue // Ensure original_value is stored
+      status: 'confirmed',
+      value: calculatedValue,
+      original_value: c.contract_amount != null ? c.contract_amount : (c.original_value || c.value) // Store contract_amount as original_value
     })
     .eq('id', c.id)
   
   if (error) {
-    console.error('Error approving commission:', error)
+    console.error('Error confirming commission:', error)
     return
   }
   
@@ -377,8 +384,8 @@ const formatValue = (value: number | string | null | undefined, currency: string
 const formatStatus = (status: string) => {
   const statusMap: Record<string, string> = {
     'requested': t('commissions.requested'),
-    'approved': t('commissions.approved'),
-    'claimed': t('commissions.claimed'),
+    'confirmed': t('commissions.confirmed'),
+    'paid': t('commissions.paid'),
   }
   const statusText = statusMap[status] || status
   return statusText.charAt(0).toUpperCase() + statusText.slice(1)
@@ -391,10 +398,14 @@ const getOriginalValueDisplay = (commission: Commission) => {
 
 // Calculate commission received for display
 const getCommissionReceivedDisplay = (commission: Commission) => {
-  if (commission.status === 'approved' || commission.status === 'claimed') {
+  if (commission.status === 'confirmed' || commission.status === 'paid') {
     return commission.value
   }
-  // For requested status, calculate based on ref_percentage
+  // For requested status, use contract_amount and commission_rate if available
+  if (commission.contract_amount != null && commission.commission_rate != null) {
+    return Number(commission.contract_amount || 0) * (Number(commission.commission_rate || 0) / 100)
+  }
+  // Fallback: calculate based on ref_percentage
   const refInfo = userRefInfo.value[commission.user_id]
   const refPercentage = refInfo?.ref_percentage || 0
   const originalValue = commission.original_value != null ? commission.original_value : commission.value
@@ -790,14 +801,14 @@ const saveEditRef = async () => {
                             <span>{{ formatValue(getCommissionReceivedDisplay(row), row.currency) }}</span>
                           </template>
                           <template #status-data="{ row }">
-                            <UBadge :label="formatStatus(row.status || 'unknown')" :color="row.status === 'claimed' ? 'blue' : row.status === 'approved' ? 'green' : 'yellow'" variant="soft" />
+                            <UBadge :label="formatStatus(row.status || 'unknown')" :color="row.status === 'paid' ? 'green' : row.status === 'confirmed' ? 'blue' : 'yellow'" variant="soft" />
                           </template>
                           <template #actions-data="{ row }">
                             <UButton 
                               v-if="row.status === 'requested'" 
                               size="xs" 
                               color="gray" 
-                              @click="approveCommission(row)"
+                              @click="confirmCommission(row)"
                               :disabled="!isProjectAdmin"
                               :title="!isProjectAdmin ? $t('admin.onlyProjectAdminsCanApproveCommissions') : ''"
                             >

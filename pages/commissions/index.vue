@@ -10,7 +10,7 @@ const user = useSupabaseUser()
 const isLoading = ref(false)
 const commissions = ref<any[]>([])
 const isModalOpen = ref(false)
-const editDraft = reactive<{ id: string; description: string; value: number | undefined; currency: string }>({ id: '', description: '', value: undefined, currency: 'USD' })
+const editDraft = reactive<{ id: string; description: string; contract_amount: number | undefined; currency: string }>({ id: '', description: '', contract_amount: undefined, currency: 'USD' })
 const isCreateOpen = ref(false)
 const selectedYear = ref<number | string>('')
 const selectedMonth = ref<string>('')
@@ -20,7 +20,7 @@ const selectedStatus = ref<string>('')
 const form = reactive({
   project_id: '',
   description: '',
-  value: undefined as unknown as number,
+  contract_amount: undefined as unknown as number,
   currency: 'USD' as 'USD' | 'VND',
 })
 
@@ -109,7 +109,7 @@ const fetchCommissions = async () => {
   if (!user.value) return
   const { data } = await supabase
     .from('commissions')
-    .select('id, project_id, description, date, status, value, original_value, currency')
+    .select('id, project_id, description, date, status, value, original_value, currency, contract_amount, commission_rate')
     .eq('user_id', user.value.id)
     .order('date', { ascending: false })
   commissions.value = data || []
@@ -134,14 +134,19 @@ const getOriginalValue = (commission: any) => {
   return Number(commission.value || 0)
 }
 
-// Calculate commission received based on ref_percentage
+// Calculate commission received
 const getCommissionReceived = (commission: any) => {
-  if (commission.status === 'approved' || commission.status === 'claimed') {
-    // Already calculated when approved, return the value
+  if (commission.status === 'confirmed' || commission.status === 'paid') {
+    // Already calculated when confirmed, return the value
     return Number(commission.value || 0)
   }
   
-  // For requested status, calculate based on ref_percentage
+  // For requested status, use contract_amount and commission_rate if available
+  if (commission.contract_amount != null && commission.commission_rate != null) {
+    return Number(commission.contract_amount || 0) * (Number(commission.commission_rate || 0) / 100)
+  }
+  
+  // Fallback: calculate based on ref_percentage
   const refPercentage = projectRefPercentages.value[commission.project_id] || 0
   const originalValue = getOriginalValue(commission)
   return originalValue * (refPercentage / 100)
@@ -151,9 +156,9 @@ const statusColor = (status: string) => {
   switch (status) {
     case 'requested':
       return 'yellow'
-    case 'approved':
+    case 'confirmed':
       return 'blue'
-    case 'claimed':
+    case 'paid':
       return 'green'
     default:
       return 'gray'
@@ -230,8 +235,8 @@ const statusOptions = computed(() => {
   return [
     { label: t('common.all'), value: '' },
     { label: capitalize(t('commissions.requested')), value: 'requested' },
-    { label: capitalize(t('commissions.approved')), value: 'approved' },
-    { label: capitalize(t('commissions.claimed')), value: 'claimed' },
+    { label: capitalize(t('commissions.confirmed')), value: 'confirmed' },
+    { label: capitalize(t('commissions.paid')), value: 'paid' },
   ]
 })
 
@@ -240,8 +245,8 @@ const formatStatus = (status: string) => {
   const { t } = useI18n()
   const statusMap: Record<string, string> = {
     'requested': t('commissions.requested'),
-    'approved': t('commissions.approved'),
-    'claimed': t('commissions.claimed'),
+    'confirmed': t('commissions.confirmed'),
+    'paid': t('commissions.paid'),
   }
   const statusText = statusMap[status] || status
   return statusText.charAt(0).toUpperCase() + statusText.slice(1)
@@ -265,20 +270,20 @@ const totals = computed(() => {
     const value = Number(c.value || 0)
     
     if (currency === 'VND') {
-      if (c.status === 'claimed') {
+      if (c.status === 'paid') {
         result.claimedVND += value
       }
-      if (c.status === 'approved') {
+      if (c.status === 'confirmed') {
         result.approvedButNotClaimedVND += value
       }
       if (c.status === 'requested') {
         result.requestedVND += value
       }
     } else {
-      if (c.status === 'claimed') {
+      if (c.status === 'paid') {
         result.claimedUSD += value
       }
-      if (c.status === 'approved') {
+      if (c.status === 'confirmed') {
         result.approvedButNotClaimedUSD += value
       }
       if (c.status === 'requested') {
@@ -291,13 +296,13 @@ const totals = computed(() => {
 })
 
 const perProject = computed(() => {
-  const map: Record<string, { project_id: string, total: number, approved: number, claimed: number, count: number }> = {}
+  const map: Record<string, { project_id: string, total: number, confirmed: number, paid: number, count: number }> = {}
   for (const c of filteredCommissions.value) {
     const key = c.project_id
-    if (!map[key]) map[key] = { project_id: key, total: 0, approved: 0, claimed: 0, count: 0 }
+    if (!map[key]) map[key] = { project_id: key, total: 0, confirmed: 0, paid: 0, count: 0 }
     map[key].total += Number(c.value || 0)
-    map[key].approved += c.status === 'approved' ? Number(c.value || 0) : 0
-    map[key].claimed += c.status === 'claimed' ? Number(c.value || 0) : 0
+    map[key].confirmed += c.status === 'confirmed' ? Number(c.value || 0) : 0
+    map[key].paid += c.status === 'paid' ? Number(c.value || 0) : 0
     map[key].count += 1
   }
   return Object.values(map)
@@ -317,14 +322,16 @@ const submit = async () => {
         user_id: user.value.id,
         project_id: form.project_id,
         description: form.description,
-        value: form.value,
-        original_value: form.value, // Store original value
+        contract_amount: form.contract_amount,
+        value: 0, // Will be calculated by admin when setting commission_rate
+        original_value: form.contract_amount, // Store contract amount as original value
         currency: form.currency,
+        status: 'requested',
       })
     if (error) throw error
     form.project_id = ''
     form.description = ''
-    ;(form as any).value = undefined
+    ;(form as any).contract_amount = undefined
     form.currency = 'USD'
     isCreateOpen.value = false
     await fetchCommissions()
@@ -334,11 +341,11 @@ const submit = async () => {
 }
 
 const openEdit = (row: any) => {
-  if (row.status === 'approved') return
+  if (row.status === 'confirmed' || row.status === 'paid') return
   editDraft.id = row.id
   editDraft.description = row.description
-  // Use original value if exists, otherwise use current value
-  ;(editDraft as any).value = row.original_value != null ? row.original_value : row.value
+  // Use contract_amount if exists, otherwise use original_value or value
+  ;(editDraft as any).contract_amount = row.contract_amount != null ? row.contract_amount : (row.original_value != null ? row.original_value : row.value)
   editDraft.currency = row.currency || 'USD'
   isModalOpen.value = true
 }
@@ -346,11 +353,11 @@ const openEdit = (row: any) => {
 const saveEdit = async () => {
   const idx = commissions.value.findIndex(c => c.id === editDraft.id)
   if (idx === -1) return
-  // When editing requested commission, update both value and original_value
+  // When editing requested commission, update contract_amount
   await supabase.from('commissions').update({ 
     description: editDraft.description, 
-    value: editDraft.value,
-    original_value: editDraft.value, // Always set original_value to the new value when editing
+    contract_amount: editDraft.contract_amount,
+    original_value: editDraft.contract_amount, // Store contract_amount as original_value
     currency: editDraft.currency
   }).eq('id', editDraft.id)
   await fetchCommissions()
@@ -394,7 +401,7 @@ const saveEdit = async () => {
                     <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                       <UIcon name="i-lucide-badge-dollar-sign" class="w-5 h-5 text-green-600" />
                     </div>
-                    <span class="text-sm font-medium text-gray-600">{{ $t('commissions.totalReceived') }}</span>
+                    <span class="text-sm font-medium text-gray-600">{{ $t('commissions.receivedCommission') }}</span>
                   </div>
                   <div class="space-y-1">
                     <template v-if="totals.claimedUSD > 0">
@@ -420,7 +427,7 @@ const saveEdit = async () => {
                     <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
                       <UIcon name="i-lucide-hourglass" class="w-5 h-5 text-orange-600" />
                     </div>
-                    <span class="text-sm font-medium text-gray-600">{{ $t('commissions.totalNotClaimed') }}</span>
+                    <span class="text-sm font-medium text-gray-600">{{ $t('commissions.pendingCommission') }}</span>
                   </div>
                   <div class="space-y-1">
                     <template v-if="totals.approvedButNotClaimedUSD > 0">
@@ -491,7 +498,7 @@ const saveEdit = async () => {
             { key: 'date', label: $t('common.date') },
             { key: 'project_id', label: $t('common.project') },
             { key: 'description', label: $t('common.description') },
-            { key: 'value', label: $t('common.value') },
+            { key: 'value', label: $t('commissions.contractAmount') },
             { key: 'commission_received', label: $t('commissions.commissionReceived') },
             { key: 'status', label: $t('common.status') },
             { key: 'actions', label: $t('common.actions') },
@@ -506,7 +513,7 @@ const saveEdit = async () => {
               <span>{{ row.description || 'Failed to get cell value' }}</span>
             </template>
             <template #value-data="{ row }">
-              <span>{{ formatValue(getOriginalValue(row), row.currency) }}</span>
+              <span>{{ formatValue(row.contract_amount != null ? row.contract_amount : getOriginalValue(row), row.currency) }}</span>
             </template>
             <template #commission_received-data="{ row }">
               <span>{{ formatValue(getCommissionReceived(row), row.currency) }}</span>
@@ -516,7 +523,7 @@ const saveEdit = async () => {
             </template>
             <template #actions-data="{ row }">
               <UButton v-if="row.status === 'requested'" color="gray" size="xs" @click="openEdit(row)">{{ $t('commissions.edit') }}</UButton>
-              <UButton v-else-if="row.status === 'approved'" color="primary" size="xs" @click="async () => { await supabase.from('commissions').update({ status: 'claimed' }).eq('id', row.id); await fetchCommissions() }">{{ $t('commissions.claim') }}</UButton>
+              <UButton v-else-if="row.status === 'confirmed'" color="primary" size="xs" @click="async () => { await supabase.from('commissions').update({ status: 'paid' }).eq('id', row.id); await fetchCommissions() }">{{ $t('commissions.claim') }}</UButton>
               <div v-else>{{ $t('common.noData') }}</div>
             </template>
           </UTable>
@@ -531,8 +538,8 @@ const saveEdit = async () => {
               <UFormGroup :label="$t('common.description')">
                 <UTextarea v-model="editDraft.description" />
               </UFormGroup>
-              <UFormGroup :label="$t('common.value')">
-                <UInput v-model.number="(editDraft as any).value" type="number" step="0.01" />
+              <UFormGroup :label="$t('commissions.contractAmount')">
+                <UInput v-model.number="(editDraft as any).contract_amount" type="number" step="0.01" />
               </UFormGroup>
               <UFormGroup :label="$t('commissions.currency')">
                 <USelect 
@@ -565,8 +572,8 @@ const saveEdit = async () => {
               <UFormGroup :label="$t('common.description')">
                 <UTextarea v-model="form.description" />
               </UFormGroup>
-              <UFormGroup :label="$t('common.value')">
-                <UInput v-model.number="form.value" type="number" step="0.01" @keyup.enter="submit" />
+              <UFormGroup :label="$t('commissions.contractAmount')">
+                <UInput v-model.number="form.contract_amount" type="number" step="0.01" @keyup.enter="submit" />
               </UFormGroup>
               <UFormGroup :label="$t('commissions.currency')">
                 <USelect 
@@ -581,7 +588,7 @@ const saveEdit = async () => {
             <template #footer>
               <div class="flex justify-end gap-2">
                 <UButton color="gray" variant="soft" @click="isCreateOpen = false">{{ $t('common.cancel') }}</UButton>
-                <UButton color="primary" @click="submit" :loading="isLoading" :disabled="isLoading || !form.project_id || !form.value">{{ $t('common.create') }}</UButton>
+                <UButton color="primary" @click="submit" :loading="isLoading" :disabled="isLoading || !form.project_id || !form.contract_amount">{{ $t('common.create') }}</UButton>
               </div>
             </template>
           </UCard>
