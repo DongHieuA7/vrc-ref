@@ -136,13 +136,26 @@ const capitalize = (str: string) => {
 
 // Open edit modal
 const openEdit = (row: any) => {
-  editDraft.id = row.id
-  editDraft.contract_amount = row.contract_amount != null ? Number(row.contract_amount) : null
-  editDraft.commission_rate = row.commission_rate != null ? Number(row.commission_rate) : null
-  editDraft.status = row.status
-  editDraft.client_name = row.client_name || ''
-  editDraft.description = row.description || ''
-  isEditOpen.value = true
+  if (!row || !row.id) return
+  
+  // Reset form first
+  editDraft.id = ''
+  editDraft.contract_amount = null
+  editDraft.commission_rate = null
+  editDraft.status = 'requested'
+  editDraft.client_name = ''
+  editDraft.description = ''
+  
+  // Use nextTick to ensure modal is ready before setting values
+  nextTick(() => {
+    editDraft.id = row.id
+    editDraft.contract_amount = row.contract_amount != null ? Number(row.contract_amount) : null
+    editDraft.commission_rate = row.commission_rate != null ? Number(row.commission_rate) : null
+    editDraft.status = row.status || 'requested'
+    editDraft.client_name = row.client_name || ''
+    editDraft.description = row.description || ''
+    isEditOpen.value = true
+  })
 }
 
 // Calculate commission amount

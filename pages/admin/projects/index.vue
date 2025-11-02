@@ -23,12 +23,14 @@ const draft = reactive<{
   id?: string, 
   name: string, 
   selectedUsers: string[],
+  selectedOwners: string[],
   commission_rate_min?: number | null,
   commission_rate_max?: number | null,
   policy?: string | null
 }>({ 
   name: '', 
   selectedUsers: [],
+  selectedOwners: [],
   commission_rate_min: null,
   commission_rate_max: null,
   policy: null
@@ -68,6 +70,19 @@ const availableUserOptionsForManage = computed(() => {
 })
 
 const userOptions = computed(() => allUsers.value.map(u => ({ label: u.name || u.email, value: u.id })))
+
+// Admin options for creating project (only project owners)
+const availableOwnerOptions = computed(() => {
+  return allAdmins.value
+    .filter(a => {
+      // Only allow project_owner or null role (exclude global_admin)
+      return a.role !== 'global_admin'
+    })
+    .map(a => ({ 
+      label: `${a.name || a.email}${a.role ? ` (${a.role === 'project_owner' ? 'Project Owner' : a.role})` : ''}`, 
+      value: a.id 
+    }))
+})
 
 // Filter out admins already in project and global admins
 // Only project owners can be added to projects
@@ -109,6 +124,7 @@ const openCreate = () => {
   draft.id = undefined
   draft.name = ''
   draft.selectedUsers = []
+  draft.selectedOwners = []
   draft.commission_rate_min = null
   draft.commission_rate_max = null
   draft.policy = null
@@ -147,8 +163,10 @@ const createProject = async () => {
     return
   }
   
-  // Auto-add current admin to project
-  const admins = [currentAdminId.value]
+  // Add selected owners to project, or use current admin as default
+  const admins = draft.selectedOwners.length > 0 
+    ? draft.selectedOwners 
+    : [currentAdminId.value]
   
   const { data, error } = await supabase
     .from('projects')
@@ -207,6 +225,7 @@ const createProject = async () => {
   
   isCreateOpen.value = false
   draft.selectedUsers = []
+  draft.selectedOwners = []
   draft.commission_rate_min = null
   draft.commission_rate_max = null
   draft.policy = null
@@ -639,6 +658,22 @@ onMounted(async () => {
               :ui="{ base: 'resize-none' }"
             />
           </UFormGroup>
+          <UFormGroup :label="$t('projects.projectOwners')">
+            <USelectMenu 
+              v-model="(draft as any).selectedOwners" 
+              :options="availableOwnerOptions" 
+              :placeholder="$t('projects.selectOwners')"
+              multiple
+              searchable
+              :ui="{ 
+                width: 'w-full',
+                option: { container: 'max-h-60 overflow-y-auto overflow-x-hidden' },
+                popper: { placement: 'bottom-start', strategy: 'fixed' }
+              }"
+              class="w-full"
+            />
+            <p class="text-xs text-gray-500 mt-1">{{ $t('projects.selectOwnersNote') }}</p>
+          </UFormGroup>
           <UFormGroup :label="$t('projects.addUsers')">
             <USelectMenu 
               v-model="(draft as any).selectedUsers" 
@@ -653,7 +688,7 @@ onMounted(async () => {
               }"
               class="w-full"
             />
-            <p class="text-xs text-gray-500 mt-1">{{ $t('projects.autoAdminNote') }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ $t('projects.usersNote') }}</p>
           </UFormGroup>
         </div>
         <template #footer>

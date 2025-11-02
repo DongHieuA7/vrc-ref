@@ -331,37 +331,6 @@ const saveEdit = async () => {
   isModalOpen.value = false
 }
 
-const claimCommission = async (row: any) => {
-  if (row.status !== 'confirmed') return
-  try {
-    isLoading.value = true
-    const { error } = await supabase
-      .from('commissions')
-      .update({ status: 'paid' })
-      .eq('id', row.id)
-    
-    if (error) throw error
-    
-    await fetchCommissions()
-    
-    const toast = useToast()
-    toast.add({
-      color: 'green',
-      title: t('messages.success'),
-      description: t('commissions.commissionClaimed') || 'Commission claimed successfully',
-    })
-  } catch (error: any) {
-    console.error('Error claiming commission:', error)
-    const toast = useToast()
-    toast.add({
-      color: 'red',
-      title: t('messages.failedToUpdate'),
-      description: error.message,
-    })
-  } finally {
-    isLoading.value = false
-  }
-}
 </script>
 
 <template>
@@ -478,15 +447,6 @@ const claimCommission = async (row: any) => {
             </template>
             <template #actions-data="{ row }">
               <UButton v-if="row.status === 'requested'" color="gray" size="xs" @click="openEdit(row)">{{ $t('commissions.edit') }}</UButton>
-              <UButton 
-                v-else-if="row.status === 'confirmed'" 
-                color="primary" 
-                size="xs" 
-                @click="claimCommission(row)"
-                :disabled="isLoading"
-              >
-                {{ $t('commissions.claim') }}
-              </UButton>
               <span v-else class="text-xs text-gray-400">—</span>
             </template>
           </UTable>

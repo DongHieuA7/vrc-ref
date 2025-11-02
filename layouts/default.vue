@@ -14,9 +14,9 @@ const userNavItems = computed(() => [
 // Admin navigation items
 const adminNavItems = computed(() => [
   { label: t('nav.adminProjects'), icon: 'i-lucide-folder-cog', to: '/admin/projects' },
-  { label: t('nav.adminUsers'), icon: 'i-lucide-user-cog', to: '/admin/users' },
   { label: t('nav.adminCommissions'), icon: 'i-lucide-badge-dollar-sign', to: '/admin/commissions' },
   { label: t('nav.adminAdmins'), icon: 'i-lucide-shield', to: '/admin/admins' },
+  { label: t('nav.adminUsers'), icon: 'i-lucide-user-cog', to: '/admin/users' },
 ])
 
 // Check if user is admin
