@@ -142,7 +142,7 @@ const createProject = async () => {
     toast.add({
       color: 'red',
       title: t('messages.userMustBeLoggedIn'),
-      description: error.message,
+      description: 'You must be logged in as admin to create a project',
     })
     return
   }
@@ -758,19 +758,20 @@ onMounted(async () => {
           <div class="flex items-center justify-between">
             <h3 class="font-semibold">{{ $t('projects.manageAdmins') }}</h3>
             <div class="flex items-center gap-2">
-            <USelect 
-              v-model="(manageState as any).addAdmin" 
-              :options="availableAdminOptionsForManage" 
-              :placeholder="$t('projects.selectAdmin')"
-              class="w-48"
-            />
-            <UButton 
-              color="primary" 
-              @click="addAdminToProject" 
-              :disabled="!manageState.addAdmin || (selected?.admins || []).includes(manageState.addAdmin || '')"
-            >
-              {{ $t('common.add') }}
-            </UButton>
+              <USelect 
+                v-model="(manageState as any).addAdmin" 
+                :options="availableAdminOptionsForManage" 
+                :placeholder="$t('projects.selectAdmin')"
+                class="w-48"
+              />
+              <UButton 
+                color="primary" 
+                @click="addAdminToProject" 
+                :disabled="!manageState.addAdmin || (selected?.admins || []).includes(manageState.addAdmin || '')"
+              >
+                {{ $t('common.add') }}
+              </UButton>
+            </div>
           </div>
         </template>
         <div class="space-y-4">
