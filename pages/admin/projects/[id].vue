@@ -703,7 +703,7 @@ const savePolicy = async () => {
                   color="red" 
                   variant="soft" 
                   :disabled="row.uid === currentAdminId || (!isGlobalAdminValue && !canManageProjectValue)"
-                  :title="row.uid === currentAdminId ? $t('admin.cannotRemoveYourself') : (!isGlobalAdminValue && !canManageProjectValue ? $t('admin.onlyProjectAdminsCanRemoveAdmins') : '')"
+                  :title="!isGlobalAdminValue && !canManageProjectValue ? $t('admin.onlyProjectAdminsCanRemoveAdmins') : ''"
                   @click="removeAdmin(row.uid)"
                 >
                   {{ $t('common.remove') }}

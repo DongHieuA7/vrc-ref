@@ -137,8 +137,8 @@ const invite = async () => {
         <div>
           <h3 class="mb-2 font-medium">{{ $t('users.users') }}</h3>
           <UTable :rows="users" :columns="[
-            { key: 'email', label: $t('common.email') },
             { key: 'name', label: $t('common.name') },
+            { key: 'email', label: $t('common.email') },
             { key: 'ref_code', label: $t('profile.referralCode') },
             { key: 'created_at', label: $t('projects.created') },
             { key: 'actions', label: $t('common.actions') },

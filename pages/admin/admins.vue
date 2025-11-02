@@ -232,8 +232,8 @@ const removeProjectOwner = async (adminId: string) => {
       </template>
 
       <UTable :rows="admins" :columns="[
-        { key: 'email', label: $t('common.email') },
         { key: 'name', label: $t('common.name') },
+        { key: 'email', label: $t('common.email') },
         { key: 'created_at', label: $t('projects.created') },
         { key: 'actions', label: $t('common.actions') },
       ]">
@@ -275,7 +275,7 @@ const removeProjectOwner = async (adminId: string) => {
             {{ $t('common.remove') }}
           </UButton>
           <span v-else-if="row.role === 'global_admin' || row.id === currentAdminId" class="text-gray-400 text-sm">
-            {{ row.id === currentAdminId ? $t('admin.cannotRemoveYourself') : '-' }}
+            -
           </span>
         </template>
       </UTable>
