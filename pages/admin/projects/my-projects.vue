@@ -498,11 +498,13 @@ const getDateString = (dateValue: any): string => {
 
 // Get project name
 const getProjectName = (projectId: string) => {
+  if (!projectId) return '—'
   return filteredProjects.value.find(p => p.id === projectId)?.name || projectId
 }
 
 // Get user name/email
 const getUserName = (userId: string) => {
+  if (!userId) return '—'
   const u = allUsers.value.find(u => u.id === userId)
   return u ? (u.name || u.email) : userId
 }

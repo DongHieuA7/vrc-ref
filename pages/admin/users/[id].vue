@@ -147,14 +147,18 @@ const getOriginalValueDisplay = (commission: any) => {
 
 // Calculate commission received for display
 const getCommissionReceivedDisplay = (commission: any) => {
+  // If status is confirmed or paid, use the stored value (already calculated when confirmed)
   if (commission.status === 'confirmed' || commission.status === 'paid') {
     return commission.value
   }
-  // For requested status, use contract_amount and commission_rate if available
+  
+  // For requested status: only calculate, never use existing value directly
+  // 1. If both contract_amount and commission_rate are available, calculate
   if (commission.contract_amount != null && commission.commission_rate != null) {
     return Number(commission.contract_amount || 0) * (Number(commission.commission_rate || 0) / 100)
   }
-  // Fallback: calculate based on ref_percentage from userProjects
+  
+  // 2. Fallback: calculate based on ref_percentage from userProjects
   const project = userProjects.value.find(p => p.id === commission.project_id)
   const refPercentage = project?.ref_percentage || 0
   const originalValue = commission.original_value != null ? commission.original_value : commission.value
@@ -203,8 +207,8 @@ const totals = computed(() => {
 const confirmCommission = async (commission: any) => {
   if (commission.status !== 'requested') return
   
-  // Calculate commission amount from contract_amount and commission_rate
-  let calculatedValue = commission.value
+  // Calculate commission amount from contract_amount and commission_rate (never use existing value)
+  let calculatedValue = 0
   if (commission.contract_amount != null && commission.commission_rate != null) {
     calculatedValue = Number(commission.contract_amount || 0) * (Number(commission.commission_rate || 0) / 100)
   } else {
@@ -222,8 +226,8 @@ const confirmCommission = async (commission: any) => {
     
     const refPercentage = refData?.ref_percentage || 0
     
-    // Get original value (if exists, use it; otherwise use current value)
-    const currentOriginalValue = commission.original_value != null ? Number(commission.original_value || 0) : Number(commission.value || 0)
+    // Use original_value only (never use existing value for calculation)
+    const currentOriginalValue = commission.original_value != null ? Number(commission.original_value || 0) : (commission.contract_amount != null ? Number(commission.contract_amount || 0) : 0)
     calculatedValue = currentOriginalValue * (refPercentage / 100)
   }
   
@@ -232,7 +236,7 @@ const confirmCommission = async (commission: any) => {
     .update({ 
       status: 'confirmed',
       value: calculatedValue,
-      original_value: commission.contract_amount != null ? commission.contract_amount : (commission.original_value || commission.value) // Store contract_amount as original_value
+      original_value: commission.contract_amount != null ? commission.contract_amount : commission.original_value // Store contract_amount as original_value
     })
     .eq('id', commission.id)
   
@@ -403,6 +407,9 @@ watch(userCommissions, () => {
             </template>
             <template #client_name-data="{ row }">
               <span>{{ row.client_name || '—' }}</span>
+            </template>
+            <template #description-data="{ row }">
+              <span>{{ row.description || '—' }}</span>
             </template>
             <template #value-data="{ row }">
               <span>{{ formatValue(getOriginalValueDisplay(row), row.currency) }}</span>

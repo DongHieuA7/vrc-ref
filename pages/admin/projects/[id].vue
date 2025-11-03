@@ -308,8 +308,8 @@ const confirmCommission = async (c: Commission) => {
     return
   }
   
-  // Calculate commission amount from contract_amount and commission_rate
-  let calculatedValue = c.value
+  // Calculate commission amount from contract_amount and commission_rate (never use existing value)
+  let calculatedValue = 0
   if (c.contract_amount != null && c.commission_rate != null) {
     calculatedValue = Number(c.contract_amount || 0) * (Number(c.commission_rate || 0) / 100)
   } else {
@@ -317,8 +317,8 @@ const confirmCommission = async (c: Commission) => {
     const refInfo = userRefInfo.value[c.user_id]
     const refPercentage = refInfo?.ref_percentage || 0
     
-    // Get original value (if exists, use it; otherwise use current value)
-    const currentOriginalValue = c.original_value != null ? Number(c.original_value || 0) : Number(c.value || 0)
+    // Use original_value only (never use existing value for calculation)
+    const currentOriginalValue = c.original_value != null ? Number(c.original_value || 0) : (c.contract_amount != null ? Number(c.contract_amount || 0) : 0)
     calculatedValue = currentOriginalValue * (refPercentage / 100)
   }
   
@@ -327,7 +327,7 @@ const confirmCommission = async (c: Commission) => {
     .update({ 
       status: 'confirmed',
       value: calculatedValue,
-      original_value: c.contract_amount != null ? c.contract_amount : (c.original_value || c.value) // Store contract_amount as original_value
+      original_value: c.contract_amount != null ? c.contract_amount : c.original_value // Store contract_amount as original_value
     })
     .eq('id', c.id)
   
@@ -347,14 +347,18 @@ const getOriginalValueDisplay = (commission: Commission) => {
 
 // Calculate commission received for display
 const getCommissionReceivedDisplay = (commission: Commission) => {
+  // If status is confirmed or paid, use the stored value (already calculated when confirmed)
   if (commission.status === 'confirmed' || commission.status === 'paid') {
     return commission.value
   }
-  // For requested status, use contract_amount and commission_rate if available
+  
+  // For requested status: only calculate, never use existing value directly
+  // 1. If both contract_amount and commission_rate are available, calculate
   if (commission.contract_amount != null && commission.commission_rate != null) {
     return Number(commission.contract_amount || 0) * (Number(commission.commission_rate || 0) / 100)
   }
-  // Fallback: calculate based on ref_percentage
+  
+  // 2. Fallback: calculate based on ref_percentage
   const refInfo = userRefInfo.value[commission.user_id]
   const refPercentage = refInfo?.ref_percentage || 0
   const originalValue = commission.original_value != null ? commission.original_value : commission.value
@@ -734,7 +738,20 @@ const saveCommission = async () => {
   if (!editCommissionDraft.id || !isProjectAdmin.value) return
   
   try {
-    const calculatedValue = calculateCommissionAmount()
+    let calculatedValue = 0
+    
+    // Calculate value based on contract_amount and commission_rate (never set manually)
+    if (editCommissionDraft.contract_amount != null && editCommissionDraft.commission_rate != null) {
+      calculatedValue = Number(editCommissionDraft.contract_amount || 0) * (Number(editCommissionDraft.commission_rate || 0) / 100)
+    } else if (editCommissionDraft.contract_amount != null) {
+      // If only contract_amount, calculate using ref_percentage when status changes to confirmed
+      const currentCommission = commissions.value.find(c => c.id === editCommissionDraft.id)
+      if (currentCommission && editCommissionDraft.status === 'confirmed') {
+        const refInfo = userRefInfo.value[currentCommission.user_id]
+        const refPercentage = refInfo?.ref_percentage || 0
+        calculatedValue = Number(editCommissionDraft.contract_amount || 0) * (refPercentage / 100)
+      }
+    }
     
     const updateData: any = {
       client_name: editCommissionDraft.client_name || null,
@@ -745,8 +762,25 @@ const saveCommission = async () => {
       original_value: editCommissionDraft.contract_amount || null,
     }
     
-    if (calculatedValue > 0 && editCommissionDraft.contract_amount != null && editCommissionDraft.commission_rate != null) {
+    // Only update value if calculated (never set manually)
+    // For confirmed/paid status, if value was already calculated, keep it; otherwise calculate
+    if (calculatedValue > 0) {
       updateData.value = calculatedValue
+    } else if (editCommissionDraft.status === 'confirmed' || editCommissionDraft.status === 'paid') {
+      // For confirmed/paid, if no calculation possible, try to calculate from existing data
+      const currentCommission = commissions.value.find(c => c.id === editCommissionDraft.id)
+      if (currentCommission) {
+        if (currentCommission.contract_amount != null && currentCommission.commission_rate != null) {
+          updateData.value = Number(currentCommission.contract_amount || 0) * (Number(currentCommission.commission_rate || 0) / 100)
+        } else if (currentCommission.contract_amount != null || currentCommission.original_value != null) {
+          const refInfo = userRefInfo.value[currentCommission.user_id]
+          const refPercentage = refInfo?.ref_percentage || 0
+          const originalValue = currentCommission.contract_amount != null ? Number(currentCommission.contract_amount || 0) : (currentCommission.original_value != null ? Number(currentCommission.original_value || 0) : 0)
+          if (originalValue > 0) {
+            updateData.value = originalValue * (refPercentage / 100)
+          }
+        }
+      }
     }
     
     const { error } = await supabase
@@ -1055,6 +1089,9 @@ const saveCommission = async () => {
                           </template>
                           <template #client_name-data="{ row }">
                             <span>{{ row.client_name || '—' }}</span>
+                          </template>
+                          <template #description-data="{ row }">
+                            <span>{{ row.description || '—' }}</span>
                           </template>
                           <template #value-data="{ row }">
                             <span>{{ formatValue(getOriginalValueDisplay(row), row.currency) }}</span>

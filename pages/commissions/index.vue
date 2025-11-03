@@ -98,7 +98,7 @@ onMounted(async () => {
 })
 
 const getProjectLabel = (projectId: string) => {
-  return projects.value.find(p => p.id === projectId)?.name || 'Failed to get cell value'
+  return projects.value.find(p => p.id === projectId)?.name || '—'
 }
 
 // Get original value (before calculation)
@@ -113,17 +113,18 @@ const getOriginalValue = (commission: any) => {
 
 // Calculate commission received
 const getCommissionReceived = (commission: any) => {
+  // If status is confirmed or paid, use the stored value (already calculated when confirmed)
   if (commission.status === 'confirmed' || commission.status === 'paid') {
-    // Already calculated when confirmed, return the value
     return Number(commission.value || 0)
   }
   
-  // For requested status, use contract_amount and commission_rate if available
+  // For requested status: only calculate, never use existing value directly
+  // 1. If both contract_amount and commission_rate are available, calculate
   if (commission.contract_amount != null && commission.commission_rate != null) {
     return Number(commission.contract_amount || 0) * (Number(commission.commission_rate || 0) / 100)
   }
   
-  // Fallback: calculate based on ref_percentage
+  // 2. Fallback: calculate based on ref_percentage
   const refPercentage = projectRefPercentages.value[commission.project_id] || 0
   const originalValue = getOriginalValue(commission)
   return originalValue * (refPercentage / 100)
@@ -427,7 +428,7 @@ const saveEdit = async () => {
               <span>{{ row.client_name || '—' }}</span>
             </template>
             <template #description-data="{ row }">
-              <span>{{ row.description || 'Failed to get cell value' }}</span>
+              <span>{{ row.description || '—' }}</span>
             </template>
             <template #value-data="{ row }">
               <span>{{ formatValue(row.contract_amount != null ? row.contract_amount : getOriginalValue(row), row.currency) }}</span>
