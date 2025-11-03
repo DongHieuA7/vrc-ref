@@ -4,11 +4,8 @@ const { formatValue } = useCommissionFormatters()
 
 interface Props {
   totals: {
-    totalUSD?: number
     totalVND?: number
-    confirmedUSD?: number
     confirmedVND?: number
-    paidUSD?: number
     paidVND?: number
   }
 }
@@ -16,11 +13,8 @@ interface Props {
 const props = defineProps<Props>()
 
 const totalsComputed = computed(() => ({
-  totalUSD: props.totals.totalUSD || 0,
   totalVND: props.totals.totalVND || 0,
-  confirmedUSD: props.totals.confirmedUSD || 0,
   confirmedVND: props.totals.confirmedVND || 0,
-  paidUSD: props.totals.paidUSD || 0,
   paidVND: props.totals.paidVND || 0,
 }))
 </script>
@@ -37,11 +31,7 @@ const totalsComputed = computed(() => ({
             <span class="text-sm font-medium text-gray-600">{{ $t('commissions.totalReceived') }}</span>
           </div>
           <div class="space-y-1">
-            <template v-if="totalsComputed.paidUSD > 0">
-              <div class="text-3xl font-bold text-gray-900">{{ formatValue(totalsComputed.paidUSD, 'USD') }}</div>
-              <div v-if="totalsComputed.paidVND > 0" class="text-base font-medium text-gray-500">{{ formatValue(totalsComputed.paidVND, 'VND') }}</div>
-            </template>
-            <template v-else-if="totalsComputed.paidVND > 0">
+            <template v-if="totalsComputed.paidVND > 0">
               <div class="text-3xl font-bold text-gray-900">{{ formatValue(totalsComputed.paidVND, 'VND') }}</div>
             </template>
             <template v-else>
@@ -62,11 +52,7 @@ const totalsComputed = computed(() => ({
             <span class="text-sm font-medium text-gray-600">{{ $t('commissions.totalPaid') }}</span>
           </div>
           <div class="space-y-1">
-            <template v-if="totalsComputed.paidUSD > 0">
-              <div class="text-3xl font-bold text-gray-900">{{ formatValue(totalsComputed.paidUSD, 'USD') }}</div>
-              <div v-if="totalsComputed.paidVND > 0" class="text-base font-medium text-gray-500">{{ formatValue(totalsComputed.paidVND, 'VND') }}</div>
-            </template>
-            <template v-else-if="totalsComputed.paidVND > 0">
+            <template v-if="totalsComputed.paidVND > 0">
               <div class="text-3xl font-bold text-gray-900">{{ formatValue(totalsComputed.paidVND, 'VND') }}</div>
             </template>
             <template v-else>

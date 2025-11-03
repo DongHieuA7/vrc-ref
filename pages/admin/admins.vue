@@ -123,7 +123,7 @@ const userOptions = computed(() => {
 const roleOptions = computed(() => [
   { label: t('common.all'), value: '' },
   { label: t('admin.globalAdmin') || 'Global Admin', value: 'global_admin' },
-  { label: t('admin.projectOwner') || 'Project Owner', value: 'project_owner' },
+  { label: t('admin.projectOwner'), value: 'project_owner' },
 ])
 
 // Filtered admins
@@ -285,7 +285,7 @@ const removeProjectOwner = async (adminId: string) => {
               variant="soft"
               size="xs"
             >
-              {{ $t('admin.projectOwner') || 'Project Owner' }}
+              {{ $t('admin.projectOwner') }}
             </UBadge>
           </div>
         </template>

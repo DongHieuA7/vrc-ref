@@ -12,7 +12,7 @@ export const useCommissionFormatters = () => {
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
-  const formatValue = (value: number | string | null | undefined, currency: string = 'USD') => {
+  const formatValue = (value: number | string | null | undefined, currency: string = 'VND') => {
     if (value == null || value === '' || value === undefined) return '—'
     const numValue = typeof value === 'string' ? parseFloat(value) : value
     if (isNaN(numValue)) return '—'

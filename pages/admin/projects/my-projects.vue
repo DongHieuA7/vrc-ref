@@ -646,7 +646,7 @@ watch(filteredProjects, () => {
               :placeholder="$t('commissions.commissionRate')"
             />
             <p class="text-xs text-gray-500 mt-1">
-              {{ $t('commissions.commissionAmount') }}: {{ formatValue(calculateCommissionAmount(), 'USD') }}
+              {{ $t('commissions.commissionAmount') }}: {{ formatValue(calculateCommissionAmount(), 'VND') }}
             </p>
           </UFormGroup>
           

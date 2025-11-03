@@ -10,7 +10,7 @@ const user = useSupabaseUser()
 const isLoading = ref(false)
 const commissions = ref<any[]>([])
 const isModalOpen = ref(false)
-const editDraft = reactive<{ id: string; client_name: string; description: string; contract_amount: number | undefined; currency: string }>({ id: '', client_name: '', description: '', contract_amount: undefined, currency: 'USD' })
+const editDraft = reactive<{ id: string; client_name: string; description: string; contract_amount: number | undefined }>({ id: '', client_name: '', description: '', contract_amount: undefined })
 const isCreateOpen = ref(false)
 const selectedYear = ref<number | string>('')
 const selectedMonth = ref<string>('')
@@ -22,7 +22,6 @@ const form = reactive({
   client_name: '',
   description: '',
   contract_amount: undefined as unknown as number,
-  currency: 'USD' as 'USD' | 'VND',
 })
 
 const projects = ref<any[]>([])
@@ -87,7 +86,7 @@ const fetchCommissions = async () => {
   if (!user.value) return
   const { data } = await supabase
     .from('commissions')
-    .select('id, project_id, client_name, description, date, status, value, original_value, currency, contract_amount, commission_rate')
+    .select('id, project_id, client_name, description, date, status, value, original_value, contract_amount, commission_rate')
     .eq('user_id', user.value.id)
     .order('date', { ascending: false })
   commissions.value = data || []
@@ -153,69 +152,42 @@ const statusOptions = computed(() => {
 // formatStatus is already imported from useCommissionFormatters
 
 // Total statistics should show all commissions, not filtered ones
-// Calculate separately by currency
 const totals = computed(() => {
   const list = commissions.value
   const result = {
     // Total Contract Amount: Sum all contract_amount
-    totalContractAmountUSD: 0,
     totalContractAmountVND: 0,
     // Pending Contract Amount: Sum contract_amount of status = requested
-    pendingContractAmountUSD: 0,
     pendingContractAmountVND: 0,
     // Received Commission: Sum commission amount (value) of status = paid
-    receivedCommissionUSD: 0,
     receivedCommissionVND: 0,
     // Pending Commission: Sum commission amount (value) of status = confirmed
-    pendingCommissionUSD: 0,
     pendingCommissionVND: 0,
   }
   
   for (const c of list) {
-    const currency = c.currency || 'USD'
-    
     // Get contract amount (use contract_amount if exists, otherwise original_value, otherwise 0)
     const contractAmount = c.contract_amount != null ? Number(c.contract_amount || 0) : (c.original_value != null ? Number(c.original_value || 0) : 0)
     
     // Get commission amount (value)
     const commissionAmount = Number(c.value || 0)
     
-    if (currency === 'VND') {
-      // Total Contract Amount - sum all
-      result.totalContractAmountVND += contractAmount
-      
-      // Pending Contract Amount - status = requested
-      if (c.status === 'requested') {
-        result.pendingContractAmountVND += contractAmount
-      }
-      
-      // Received Commission - status = paid
-      if (c.status === 'paid') {
-        result.receivedCommissionVND += commissionAmount
-      }
-      
-      // Pending Commission - status = confirmed
-      if (c.status === 'confirmed') {
-        result.pendingCommissionVND += commissionAmount
-      }
-    } else {
-      // Total Contract Amount - sum all
-      result.totalContractAmountUSD += contractAmount
-      
-      // Pending Contract Amount - status = requested
-      if (c.status === 'requested') {
-        result.pendingContractAmountUSD += contractAmount
-      }
-      
-      // Received Commission - status = paid
-      if (c.status === 'paid') {
-        result.receivedCommissionUSD += commissionAmount
-      }
-      
-      // Pending Commission - status = confirmed
-      if (c.status === 'confirmed') {
-        result.pendingCommissionUSD += commissionAmount
-      }
+    // Total Contract Amount - sum all
+    result.totalContractAmountVND += contractAmount
+    
+    // Pending Contract Amount - status = requested
+    if (c.status === 'requested') {
+      result.pendingContractAmountVND += contractAmount
+    }
+    
+    // Received Commission - status = paid
+    if (c.status === 'paid') {
+      result.receivedCommissionVND += commissionAmount
+    }
+    
+    // Pending Commission - status = confirmed
+    if (c.status === 'confirmed') {
+      result.pendingCommissionVND += commissionAmount
     }
   }
   
@@ -253,7 +225,7 @@ const submit = async () => {
         contract_amount: form.contract_amount,
         value: 0, // Will be calculated by admin when setting commission_rate
         original_value: form.contract_amount, // Store contract amount as original value
-        currency: form.currency,
+        currency: 'VND',
         status: 'requested',
       })
     if (error) throw error
@@ -261,7 +233,6 @@ const submit = async () => {
     form.client_name = ''
     form.description = ''
     ;(form as any).contract_amount = undefined
-    form.currency = 'USD'
     isCreateOpen.value = false
     await fetchCommissions()
   } finally {
@@ -276,7 +247,6 @@ const openEdit = (row: any) => {
   editDraft.description = row.description
   // Use contract_amount if exists, otherwise use original_value or value
   ;(editDraft as any).contract_amount = row.contract_amount != null ? row.contract_amount : (row.original_value != null ? row.original_value : row.value)
-  editDraft.currency = row.currency || 'USD'
   isModalOpen.value = true
 }
 
@@ -289,7 +259,7 @@ const saveEdit = async () => {
     description: editDraft.description, 
     contract_amount: editDraft.contract_amount,
     original_value: editDraft.contract_amount, // Store contract_amount as original_value
-    currency: editDraft.currency
+    currency: 'VND'
   }).eq('id', editDraft.id)
   await fetchCommissions()
   isModalOpen.value = false
@@ -316,20 +286,17 @@ const saveEdit = async () => {
               icon="i-lucide-folders"
               icon-color="blue"
               :value="projectCount"
-              currency="USD"
             />
             <StatisticsCard
               :title="$t('commissions.totalContractAmount')"
               icon="i-lucide-file-text"
               icon-color="blue"
-              :value-USD="totals.totalContractAmountUSD"
               :value-VND="totals.totalContractAmountVND"
             />
             <StatisticsCard
               :title="$t('commissions.pendingContractAmount')"
               icon="i-lucide-clock"
               icon-color="yellow"
-              :value-USD="totals.pendingContractAmountUSD"
               :value-VND="totals.pendingContractAmountVND"
             />
           </div>
@@ -340,14 +307,12 @@ const saveEdit = async () => {
               :title="$t('commissions.receivedCommission')"
               icon="i-lucide-badge-dollar-sign"
               icon-color="green"
-              :value-USD="totals.receivedCommissionUSD"
               :value-VND="totals.receivedCommissionVND"
             />
             <StatisticsCard
               :title="$t('commissions.pendingCommission')"
               icon="i-lucide-hourglass"
               icon-color="orange"
-              :value-USD="totals.pendingCommissionUSD"
               :value-VND="totals.pendingCommissionVND"
             />
           </div>
@@ -399,15 +364,6 @@ const saveEdit = async () => {
               <UFormGroup :label="$t('commissions.contractAmount')">
                 <UInput v-model.number="(editDraft as any).contract_amount" type="number" step="0.01" />
               </UFormGroup>
-              <UFormGroup :label="$t('commissions.currency')">
-                <USelect 
-                  v-model="editDraft.currency" 
-                  :options="[
-                    { label: 'USD ($)', value: 'USD' },
-                    { label: 'VND (₫)', value: 'VND' }
-                  ]" 
-                />
-              </UFormGroup>
             </div>
             <template #footer>
               <div class="flex justify-end gap-2">
@@ -435,15 +391,6 @@ const saveEdit = async () => {
               </UFormGroup>
               <UFormGroup :label="$t('commissions.contractAmount')">
                 <UInput v-model.number="form.contract_amount" type="number" step="0.01" @keyup.enter="submit" />
-              </UFormGroup>
-              <UFormGroup :label="$t('commissions.currency')">
-                <USelect 
-                  v-model="form.currency" 
-                  :options="[
-                    { label: 'USD ($)', value: 'USD' },
-                    { label: 'VND (₫)', value: 'VND' }
-                  ]" 
-                />
               </UFormGroup>
             </div>
             <template #footer>

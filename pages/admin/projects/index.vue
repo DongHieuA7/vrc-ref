@@ -59,7 +59,7 @@ const availableOwnerOptions = computed(() => {
       return a.role !== 'global_admin'
     })
     .map(a => ({ 
-      label: `${a.name || a.email}${a.role ? ` (${a.role === 'project_owner' ? 'Project Owner' : a.role})` : ''}`, 
+      label: `${a.name || a.email}${a.role ? ` (${a.role === 'project_owner' ? t('admin.projectOwner') : a.role})` : ''}`, 
       value: a.id 
     }))
 })

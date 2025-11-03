@@ -117,13 +117,9 @@ const totalCommissionByUser = computed<Record<string, { amount: number, currency
   for (const c of commissions.value) {
     if (c.status === 'paid' && c.project_id === projectId.value) {
       if (!totals[c.user_id]) {
-        totals[c.user_id] = { amount: 0, currency: c.currency || 'USD' }
+        totals[c.user_id] = { amount: 0, currency: 'VND' }
       }
       totals[c.user_id].amount += Number(c.value || 0)
-      // Keep currency from first commission found
-      if (!totals[c.user_id].currency) {
-        totals[c.user_id].currency = c.currency || 'USD'
-      }
     }
   }
   return totals
@@ -223,7 +219,7 @@ const fetchCommissions = async () => {
     date: c.date,
     status: c.status,
     value: Number(c.value),
-    currency: c.currency || 'USD',
+    currency: c.currency || 'VND',
     contract_amount: c.contract_amount || null,
     commission_rate: c.commission_rate || null,
   }))
@@ -379,7 +375,7 @@ const availableAdminOptions = computed(() => {
       return a.role !== 'global_admin'
     })
     .map(a => ({ 
-      label: `${a.name || a.email}${a.role ? ` (${a.role === 'project_owner' ? 'Project Owner' : a.role})` : ''}`, 
+      label: `${a.name || a.email}${a.role ? ` (${a.role === 'project_owner' ? t('admin.projectOwner') : a.role})` : ''}`, 
       value: a.id 
     }))
 })
@@ -912,7 +908,7 @@ const saveCommission = async () => {
                     variant="soft"
                     size="xs"
                   >
-                    {{ $t('admin.projectOwner') || 'Project Owner' }}
+                    {{ $t('admin.projectOwner') }}
                   </UBadge>
                 </div>
               </template>
@@ -1015,7 +1011,7 @@ const saveCommission = async () => {
                       </td>
                       <td class="py-2">
                         <span v-if="row.status === 'joined' && totalCommissionByUser[row.user_id] && totalCommissionByUser[row.user_id].amount > 0">
-                          {{ formatValue(totalCommissionByUser[row.user_id].amount, totalCommissionByUser[row.user_id].currency || 'USD') }}
+                          {{ formatValue(totalCommissionByUser[row.user_id].amount, 'VND') }}
                         </span>
                         <span v-else class="text-gray-400">—</span>
                       </td>
@@ -1429,7 +1425,7 @@ const saveCommission = async () => {
                 :placeholder="$t('commissions.commissionRate')"
               />
               <p class="text-xs text-gray-500 mt-1">
-                {{ $t('commissions.commissionAmount') }}: {{ formatValue(calculateCommissionAmount(), 'USD') }}
+                {{ $t('commissions.commissionAmount') }}: {{ formatValue(calculateCommissionAmount(), 'VND') }}
               </p>
             </UFormGroup>
             

@@ -4,14 +4,13 @@ interface Props {
   icon: string
   iconColor?: string
   value?: string | number | null
-  valueUSD?: number | null
   valueVND?: number | null
-  currency?: 'USD' | 'VND' | 'both'
+  currency?: 'VND'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   iconColor: 'blue',
-  currency: 'both',
+  currency: 'VND',
 })
 
 const { formatValue } = useCommissionFormatters()
@@ -24,16 +23,8 @@ const displayValue = computed(() => {
     return props.value
   }
   
-  if (props.currency === 'both' && props.valueUSD != null && props.valueVND != null) {
-    return { usd: props.valueUSD, vnd: props.valueVND }
-  }
-  
-  if (props.valueUSD != null && props.valueUSD > 0) {
-    return { usd: props.valueUSD, vnd: props.valueVND || 0 }
-  }
-  
   if (props.valueVND != null && props.valueVND > 0) {
-    return { usd: 0, vnd: props.valueVND }
+    return props.valueVND
   }
   
   return null
@@ -74,21 +65,15 @@ const iconTextColorClass = computed(() => {
           </div>
           <span class="text-sm font-medium text-gray-600">{{ title }}</span>
         </div>
-        <div v-if="typeof displayValue === 'string' || typeof displayValue === 'number'" class="text-3xl font-bold text-gray-900">
-          {{ displayValue }}
-        </div>
-        <div v-else-if="displayValue && typeof displayValue === 'object'" class="space-y-1">
-          <template v-if="displayValue.usd > 0">
-            <div class="text-3xl font-bold text-gray-900">{{ formatValue(displayValue.usd, 'USD') }}</div>
-            <div v-if="displayValue.vnd > 0" class="text-base font-medium text-gray-500">{{ formatValue(displayValue.vnd, 'VND') }}</div>
-          </template>
-          <template v-else-if="displayValue.vnd > 0">
-            <div class="text-3xl font-bold text-gray-900">{{ formatValue(displayValue.vnd, 'VND') }}</div>
-          </template>
-          <template v-else>
-            <div class="text-3xl font-bold text-gray-400">—</div>
-          </template>
-        </div>
+        <template v-if="displayValue !== null && displayValue !== undefined">
+          <div v-if="value !== null && value !== undefined" class="text-3xl font-bold text-gray-900">
+            {{ displayValue }}
+          </div>
+          <div v-else-if="typeof displayValue === 'number'" class="text-3xl font-bold text-gray-900">
+            {{ formatValue(displayValue, 'VND') }}
+          </div>
+          <div v-else class="text-3xl font-bold text-gray-400">—</div>
+        </template>
         <div v-else class="text-3xl font-bold text-gray-400">—</div>
       </div>
     </div>

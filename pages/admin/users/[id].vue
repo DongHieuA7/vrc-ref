@@ -125,27 +125,17 @@ const filteredCommissions = computed(() => {
 // Statistics
 const totals = computed(() => {
   const result = {
-    totalUSD: 0,
     totalVND: 0,
-    confirmedUSD: 0,
     confirmedVND: 0,
-    paidUSD: 0,
     paidVND: 0,
   }
   
   for (const c of userCommissions.value) {
-    const currency = c.currency || 'USD'
     const value = Number(c.value || 0)
     
-    if (currency === 'VND') {
-      result.totalVND += value
-      if (c.status === 'confirmed') result.confirmedVND += value
-      if (c.status === 'paid') result.paidVND += value
-    } else {
-      result.totalUSD += value
-      if (c.status === 'confirmed') result.confirmedUSD += value
-      if (c.status === 'paid') result.paidUSD += value
-    }
+    result.totalVND += value
+    if (c.status === 'confirmed') result.confirmedVND += value
+    if (c.status === 'paid') result.paidVND += value
   }
   
   return result
